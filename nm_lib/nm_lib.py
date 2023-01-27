@@ -68,7 +68,7 @@ def order_conv(hh, hh2, hh4, **kwargs):
     `array` 
         The order of convergence.  
     """
-   
+    return np.log2((hh4[::4]-hh2[::2])/(hh2[::2]-hh))
 
 def deriv_4tho(xx, hh, **kwargs): 
     """
