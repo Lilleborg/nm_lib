@@ -27,7 +27,7 @@ def get_u_exact(xx: np.ndarray,t: float,a: float) -> np.ndarray:
     return get_uu_t0(y)
 
 def test_ex_2b():
-    maxabserr_testing = np.array([0.58993726, 0.35731628, 0.22902555, 0.13157007, 0.07040167, 0.02637074])
+    maxabserr_testing = np.array([0.48993726, 0.35731628, 0.22902555, 0.13157007, 0.07040167, 0.03637074])
     check_time = 52
     nr_increases = 5    # number of times increasing space resolution
     b2s = 6     # start number of intervals in base 2
