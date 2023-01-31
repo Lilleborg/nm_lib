@@ -14,44 +14,25 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt 
 
-
-def deriv_dnw(xx, hh, **kwargs):
+def get_xx(nint: int, x0: float, xf: float) -> tuple[np.ndarray, np.ndarray]:
     """
-    Returns the downwind 2nd order derivative of hh array respect to xx array. 
+    Generate an array of x values from x0 to xf with nint number of intervals between points
 
-    Parameters 
-    ----------
-    xx : `array`
-        Spatial axis. 
-    hh : `array`
-        Function that depends on xx. 
+    Arguments:
+        nint {int} -- number of intervals between grid points
 
-    Keyword arguments
-    -----------------
-    method : 'string'
-        String to indicate a particular method to use, at the moment only "roll" is recognized
-        to use np.roll() for shifting indices. Using this mehtod will not loose any grid points.
+    Keyword Arguments:
+        xf {float} -- last value in output array (default: {10.0})
+        x0 {float} -- first value in output array (default: {-4.0})
 
-    Returns
-    -------
-    `array`
-        The downwind 2nd order derivative of hh respect to xx. First 
-        grid point is ill (or missing) calculated. 
+    Returns:
+        tuple[np.ndarray, float] -- (the resulting x array, spacing between points x[1]-x[0])
     """
-    try:
-        if kwargs["method"] == "roll":
-            return (hh-np.roll(hh,1))/(xx - np.roll(xx,1))
-        else:
-            raise KeyError
-    except:
-        # df[i] = f[i] - f[i-1] /dx
-        # dx[i] = x[i] - x[i-1]
-        # set i = 1 -> df = f[1] - f[0]
-        #              dx = x[1] - x[0]
-        return (hh[1:] - hh[:-1])/(xx[1:]-xx[:-1])
+    x = np.arange(nint+1)/nint * (xf-x0) + x0
+    return x, np.roll(x,-1)-x
 
 
-def order_conv(hh, hh2, hh4, **kwargs):
+def order_conv(hh, hh2, hh4, **kwargs) -> np.ndarray:
     """
     Computes the order of convergence of a derivative function 
 
@@ -68,11 +49,126 @@ def order_conv(hh, hh2, hh4, **kwargs):
     `array` 
         The order of convergence.  
     """
-    return np.log2((hh4[::4]-hh2[::2])/(hh2[::2]-hh))
+    return np.ma.log2((hh4[::4]-hh2[::2])/(hh2[::2]-hh))
+
+
+def deriv_dnw(xx, hh, **kwargs):
+    """
+    Returns the downwind 2nd order derivative of hh array respect to xx array. 
+    dhdx[i] = h[i+1]-h[i]/x[i+1]-x[i] -> Last grid point is ill calculated
+
+    Parameters 
+    ----------
+    xx : `array`
+        Spatial axis. 
+    hh : `array`
+        Function that depends on xx. 
+
+    Keyword arguments
+    -----------------
+    method : 'string'
+        String to indicate a particular method to use.
+        {"roll"} -- use np.roll() for shift indices without loosing any grid points.
+        {"sclice"} -- use slicing to shift indices, loosing last grid point.
+
+    Returns
+    -------
+    `array`
+        The downwind 2nd order derivative of hh respect to xx. Last 
+        grid point is ill (with "roll") or missing (with "slice") calculated. 
+    """
+    try:
+        if kwargs["method"] == "roll":
+            return (np.roll(hh,-1)-hh)/(np.roll(xx,-1) - xx)
+        elif kwargs["method"] == "slice":
+            return (hh[1:]-hh[:-1])/(xx[1:]-xx[:-1])
+        else:
+            raise KeyError
+    except: # If no method is specified, use rolling
+        return (np.roll(hh,-1)-hh)/(np.roll(xx,-1) - xx)
+
+
+def deriv_upw(xx, hh, **kwargs):
+    """
+    returns the upwind 2nd order derivative of hh respect to xx. 
+    dhdx[i] = h[i] - h[i-1] / x[i] - x[i-1]
+
+    Parameters
+    ----------
+    xx : `array`
+        Spatial axis. 
+    hh : `array`
+        Function that depends on xx. 
+
+    Keyword arguments
+    -----------------
+    method : 'string'
+        String to indicate a particular method to use.
+        {"roll"} -- use np.roll() for shift indices without loosing any grid points.
+        {"sclice"} -- use slicing to shift indices, loosing first grid point.
+
+    Returns
+    -------
+    `array`
+        The upwind 2nd order derivative of hh respect to xx. First 
+        grid point is ill (with "roll") or missing (with "slice") calculated. 
+    """
+    try:
+        if kwargs["method"] == "roll":
+            return (hh-np.roll(hh,1))/(xx - np.roll(xx,1))
+        elif kwargs["method"] == "slice":    # OBS THIS IS NOT UPWIND!!!
+            return (hh[1:]-hh[:-1])/(xx[1:]-xx[:-1])
+        else:
+            raise KeyError
+    except: # If no method is specified, use rolling
+        return (hh-np.roll(hh,1))/(xx - np.roll(xx,1))
+
+
+
+def deriv_cent(xx, hh, **kwargs):
+    """
+    returns the centered 2nd derivative of hh respect to xx. 
+    dhdx[i] = h[i+1] - h[i-1] / x[i+1] - xx[i-1]
+    or with equally spaced x
+    dhdx[i] = h[i+1] - h[i-1] / 2(x[i+1] - xx[i])
+
+    Parameters
+    ---------- 
+    xx : `array`
+        Spatial axis. 
+    hh : `array`
+        Function that depends on xx. 
+
+    Keyword arguments
+    -----------------
+    method : 'string'
+    String to indicate a particular method to use.
+        {"roll"} -- use np.roll() for shift indices without loosing any grid points.
+        {"slice"} -- use slicing to shift indices, loosing first and last grid point.
+
+    Returns
+    -------
+    `array`
+        The centered 2nd order derivative of hh respect to xx. First 
+        and last grid points are ill ("roll") calculated or missing ("slice").
+    """
+    try:
+        if kwargs["method"] == "roll":
+            return (np.roll(hh,-1) - np.roll(hh,1))/(2*(np.roll(xx,-1)-xx))
+        elif kwargs["method"] == "slice":
+            return (hh[2:] - hh[:-2])/(2*(xx[2:]-xx[1:-1]))
+        else:
+            raise KeyError
+    except:
+        return (np.roll(hh,-1) - np.roll(hh,1))/(2*(np.roll(xx,-1)-xx))
+        
+
 
 def deriv_4tho(xx, hh, **kwargs): 
     """
     Returns the 4th order derivative of hh respect to xx.
+    # dhdx[i] = - h[i+2] + 8h[i+1] - 8h[i-1] + h[i-2] / 12dx
+
 
     Parameters 
     ---------- 
@@ -84,32 +180,32 @@ def deriv_4tho(xx, hh, **kwargs):
     Keyword arguments
     -----------------
     method : 'string'
-        String to indicate a particular method to use, at the moment only "roll" is recognized
-        to use np.roll() for shifting indices. Using this mehtod will not loose any grid points.
+        String to indicate a particular method to use.
+        {"roll"} -- use np.roll() for shift indices without loosing any grid points.
+        {"slice"} -- use slicing to shift indices, loosing first and last grid point.
 
     Returns
     -------
     `array`
         The centered 4th order derivative of hh respect to xx. 
-        Last and first two grid points are ill calculated. 
+        Last and first two grid points are ill calculated ("roll") or missing ("slice").
     """
     try:
         if kwargs["method"] == "roll":
             return (-np.roll(hh,-2) + 8*np.roll(hh,-1) - 8*np.roll(hh,1) + np.roll(hh,2))/(12*(np.roll(xx,-1) - xx))
+        elif kwargs["method"] == "slice":
+            dh4th   = -hh[4:] + 8*hh[3:-1] - 8*hh[1:-3] + hh[:-4]
+            dx4th   = xx[3:-1] - xx[2:-2]
+            return (dh4th)/(12*dx4th)
         else:
             raise KeyError
-    except KeyError:
-        # df[i] = - f[i+2] + 8f[i+1] - 8f[i-1] + f[i-2] / 12dx
-        # dx[i] = x[i+1] - x[i]
-        # set i = 2 -> df = f[4] - 8f[3] + 8f[1] - f[0]
-        #              dx = x[3] - x[2]
-        dh4th   = -hh[4:] + 8*hh[3:-1] - 8*hh[1:-3] + hh[:-4]
-        dx4th   = xx[3:-1] - xx[2:-2]
-        return (dh4th)/(12*dx4th)
+    except:
+        return (-np.roll(hh,-2) + 8*np.roll(hh,-1) - 8*np.roll(hh,1) + np.roll(hh,2))/(12*(np.roll(xx,-1) - xx))
+
    
 
 def step_adv_burgers(xx, hh, a, cfl_cut = 0.98, 
-                    ddx = lambda x,y: deriv_dnw(x, y), **kwargs): 
+                    ddx = lambda x,y: deriv_dnw(x, y, method="roll"), **kwargs) -> tuple[float,np.ndarray]: 
     r"""
     Right hand side of Burger's eq. where a can be a constant or a function that 
     depends on xx. 
@@ -131,14 +227,34 @@ def step_adv_burgers(xx, hh, a, cfl_cut = 0.98,
         By default clf_cut=0.98. 
     ddx : `lambda function`
         Allows to select the type of spatial derivative. 
-        By default lambda x,y: deriv_dnw(x, y)
+        By default lambda x,y: deriv_dnw(x, y, method="roll)
+
+    Keyword arguments
+    -----------------
+    bnd_limits : 'list'
+        A list with two elements, defining the number of elements on each side of the returned
+        values to replace by padding.
+    bnd_type : 'string'
+        A string defining the type of padding to use, defualts to "wrap" for periodic boundaries
 
     Returns
     -------
-    `array` 
-        Time interval.
-        Right hand side of (u^{n+1}-u^{n})/dt = from burgers eq, i.e., x \frac{\partial u}{\partial x} 
-    """    
+    `tuple`
+        1) `float`: Time interval.
+        2) `array`: Right hand side of (u^{n+1}-u^{n})/dt = from burgers eq, i.e., x \frac{\partial u}{\partial x} 
+    """
+    dt = cfl_cut*cfl_adv_burger(a, xx)
+    rhs = -a*ddx(xx,hh)
+    # NB! Mind boundaries of the spatial derivative term. If "bnd-limits" is provided,
+    # replace the ill calculated grid point and using np.pad to add the boundaries.
+    # If "bnd_type" is also provided it specifies the type of padding to be used, defaults to "wrap".
+    if "bnd_limits" in kwargs:
+        low, up = kwargs["bnd_limits"]
+        up = None if up == 0 else -up
+        rhs = rhs[low:up]
+        bnd_type = kwargs["bnd_type"] if "bnd_type" in kwargs else "wrap"
+        rhs = np.pad(rhs, kwargs["bnd_limits"], bnd_type)
+    return dt, rhs
 
 
 def cfl_adv_burger(a,x): 
@@ -158,6 +274,8 @@ def cfl_adv_burger(a,x):
     `float`
         min(dx/|a|)
     """
+    dx = (np.roll(x,-1) - x)[:-1]   # exlude the last ill calcullated value
+    return np.min(dx/np.abs(a))
 
 
 def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98, 
@@ -198,82 +316,14 @@ def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98,
         Spatial and time evolution of u^n_j for n = (0,nt), and where j represents
         all the elements of the domain. 
     """
-
-    #step_adv_burgers -> rhs 
-    #fix boundaries from the rhs 
-    #compute ut+1
-
-
-def deriv_upw(xx, hh, **kwargs):
-    """
-    returns the upwind 2nd order derivative of hh respect to xx. 
-
-    Parameters
-    ----------
-    xx : `array`
-        Spatial axis. 
-    hh : `array`
-        Function that depends on xx. 
-
-    Keyword arguments
-    -----------------
-    method : 'string'
-        String to indicate a particular method to use, at the moment only "roll" is recognized
-        to use np.roll() for shifting indices. Using this mehtod will not loose any grid points.
-
-    Returns
-    ------- 
-    `array`
-        The upwind 2nd order derivative of hh respect to xx. Last 
-        grid point is ill calculated. 
-    """
-    try:
-        if kwargs["method"] == "roll":
-            return (np.roll(hh,-1)-hh)/(np.roll(xx,-1)-xx)
-        else:
-            raise KeyError
-    except:
-        # df[i] = f[i+1] - f[i] /dx
-        # dx[i] = x[i+1] - x[i]
-        # set i = 0 -> df = f[1] - f[0]
-        #              dx = xx[1] - x[0]
-        return (hh[1:] - hh[:-1])/(xx[1:]-xx[:-1])
-
-    
-
-def deriv_cent(xx, hh, **kwargs):
-    """
-    returns the centered 2nd derivative of hh respect to xx. 
-
-    Parameters
-    ---------- 
-    xx : `array`
-        Spatial axis. 
-    hh : `array`
-        Function that depends on xx. 
-
-    Keyword arguments
-    -----------------
-    method : 'string'
-        String to indicate a particular method to use, at the moment only "roll" is recognized
-        to use np.roll() for shifting indices. Using this mehtod will not loose any grid points.
-
-    Returns
-    -------
-    `array`
-        The centered 2nd order derivative of hh respect to xx. First 
-        and last grid points are ill calculated. 
-    """
-    try:
-        if kwargs["method"] == "roll":
-            return (np.roll(hh,-1) - np.roll(hh,1))/(2*(np.roll(xx,-1)-xx))
-        else:
-            raise KeyError
-    except:
-        # df[i] = f[i+1]-f[i-1] / 2dx
-        # dx[i] = x[i+1]-x[i-1]
-        # set i = 1 -> df = f[2] - f[0]
-        return (hh[2:] - hh[:-2])/(2*(xx[2:]-xx[1:-1]))
+    tt = np.zeros(nt)
+    uunt = np.zeros((nt,len(hh)))
+    uunt[0,:] = hh
+    for n in range(nt-1):
+        dt, step = step_adv_burgers(xx, uunt[n,:], a, cfl_cut=cfl_cut, ddx=ddx, bnd_limits=bnd_limits, bnd_type=bnd_type)
+        uunt[n+1,:] = uunt[n,:] + step * dt
+        tt[n+1] = tt[n] + dt
+    return tt, uunt
 
 
 def evolv_uadv_burgers(xx, hh, nt, cfl_cut = 0.98, 
