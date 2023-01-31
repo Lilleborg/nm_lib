@@ -32,7 +32,7 @@ def get_xx(nint: int, x0: float, xf: float) -> tuple[np.ndarray, np.ndarray]:
     return x, np.roll(x,-1)-x
 
 
-def order_conv(hh, hh2, hh4, **kwargs):
+def order_conv(hh, hh2, hh4, **kwargs) -> np.ndarray:
     """
     Computes the order of convergence of a derivative function 
 
@@ -49,7 +49,7 @@ def order_conv(hh, hh2, hh4, **kwargs):
     `array` 
         The order of convergence.  
     """
-    return np.log2((hh4[::4]-hh2[::2])/(hh2[::2]-hh))
+    return np.ma.log2((hh4[::4]-hh2[::2])/(hh2[::2]-hh))
 
 
 def deriv_dnw(xx, hh, **kwargs):
@@ -198,7 +198,7 @@ def deriv_4tho(xx, hh, **kwargs):
    
 
 def step_adv_burgers(xx, hh, a, cfl_cut = 0.98, 
-                    ddx = lambda x,y: deriv_dnw(x, y), **kwargs): 
+                    ddx = lambda x,y: deriv_upw(x, y, method="roll"), **kwargs) -> tuple[float,np.ndarray]: 
     r"""
     Right hand side of Burger's eq. where a can be a constant or a function that 
     depends on xx. 
@@ -220,14 +220,24 @@ def step_adv_burgers(xx, hh, a, cfl_cut = 0.98,
         By default clf_cut=0.98. 
     ddx : `lambda function`
         Allows to select the type of spatial derivative. 
-        By default lambda x,y: deriv_dnw(x, y)
+        By default lambda x,y: deriv_upw(x, y, method="roll)
 
     Returns
     -------
-    `array` 
-        Time interval.
-        Right hand side of (u^{n+1}-u^{n})/dt = from burgers eq, i.e., x \frac{\partial u}{\partial x} 
-    """    
+    `tuple`
+        1) `float`: Time interval.
+        2) `array`: Right hand side of (u^{n+1}-u^{n})/dt = from burgers eq, i.e., x \frac{\partial u}{\partial x} 
+    """
+    dt = cfl_cut*cfl_adv_burger(a, xx)
+    rhs = -a*ddx(xx,hh)
+    # NB! Mind boundaries of the spatial derivative term !!!
+    if "bnd_limits" in kwargs:
+        low, up = kwargs["bnd_limits"]
+        up = None if up == 0 else -up
+        rhs = rhs[low:up]
+        bnd_type = kwargs["bnd_type"] if "bnd_type" in kwargs else "wrap"
+        rhs = np.pad(rhs, kwargs["bnd_limits"], bnd_type)
+    return dt, rhs
 
 
 def cfl_adv_burger(a,x): 
@@ -247,6 +257,8 @@ def cfl_adv_burger(a,x):
     `float`
         min(dx/|a|)
     """
+    dx = (np.roll(x,-1) - x)[:-1]   # exlude the last ill calcullated value
+    return np.min(dx/np.abs(a))
 
 
 def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98, 
@@ -291,6 +303,16 @@ def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98,
     #step_adv_burgers -> rhs 
     #fix boundaries from the rhs 
     #compute ut+1
+    # print("a evolv", a)
+    tt = np.zeros(nt)
+    uunt = np.zeros((nt,len(hh)))
+    uunt[0,:] = hh
+    for n in range(nt-1):
+        dt, step = step_adv_burgers(xx, uunt[n,:], a, cfl_cut=cfl_cut, ddx=ddx, bnd_limits=bnd_limits, bnd_type=bnd_type)
+        uunt[n+1,:] = uunt[n,:] + step * dt
+        tt[n+1] = tt[n] + dt
+    return tt, uunt
+
 
 def evolv_uadv_burgers(xx, hh, nt, cfl_cut = 0.98, 
         ddx = lambda x,y: deriv_dnw(x, y), 
