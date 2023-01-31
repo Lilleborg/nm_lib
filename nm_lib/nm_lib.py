@@ -227,7 +227,15 @@ def step_adv_burgers(xx, hh, a, cfl_cut = 0.98,
         By default clf_cut=0.98. 
     ddx : `lambda function`
         Allows to select the type of spatial derivative. 
-        By default lambda x,y: deriv_upw(x, y, method="roll)
+        By default lambda x,y: deriv_dnw(x, y, method="roll)
+
+    Keyword arguments
+    -----------------
+    bnd_limits : 'list'
+        A list with two elements, defining the number of elements on each side of the returned
+        values to replace by padding.
+    bnd_type : 'string'
+        A string defining the type of padding to use, defualts to "wrap" for periodic boundaries
 
     Returns
     -------
@@ -237,7 +245,9 @@ def step_adv_burgers(xx, hh, a, cfl_cut = 0.98,
     """
     dt = cfl_cut*cfl_adv_burger(a, xx)
     rhs = -a*ddx(xx,hh)
-    # NB! Mind boundaries of the spatial derivative term !!!
+    # NB! Mind boundaries of the spatial derivative term. If "bnd-limits" is provided,
+    # replace the ill calculated grid point and using np.pad to add the boundaries.
+    # If "bnd_type" is also provided it specifies the type of padding to be used, defaults to "wrap".
     if "bnd_limits" in kwargs:
         low, up = kwargs["bnd_limits"]
         up = None if up == 0 else -up
@@ -306,11 +316,6 @@ def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98,
         Spatial and time evolution of u^n_j for n = (0,nt), and where j represents
         all the elements of the domain. 
     """
-
-    #step_adv_burgers -> rhs 
-    #fix boundaries from the rhs 
-    #compute ut+1
-    # print("a evolv", a)
     tt = np.zeros(nt)
     uunt = np.zeros((nt,len(hh)))
     uunt[0,:] = hh
