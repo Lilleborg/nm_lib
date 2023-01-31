@@ -55,6 +55,7 @@ def order_conv(hh, hh2, hh4, **kwargs) -> np.ndarray:
 def deriv_dnw(xx, hh, **kwargs):
     """
     Returns the downwind 2nd order derivative of hh array respect to xx array. 
+    dhdx[i] = h[i+1]-h[i]/x[i+1]-x[i] -> Last grid point is ill calculated
 
     Parameters 
     ----------
@@ -66,31 +67,31 @@ def deriv_dnw(xx, hh, **kwargs):
     Keyword arguments
     -----------------
     method : 'string'
-        String to indicate a particular method to use, at the moment only "roll" is recognized
-        to use np.roll() for shifting indices. Using this mehtod will not loose any grid points.
+        String to indicate a particular method to use.
+        {"roll"} -- use np.roll() for shift indices without loosing any grid points.
+        {"sclice"} -- use slicing to shift indices, loosing last grid point.
 
     Returns
     -------
     `array`
-        The downwind 2nd order derivative of hh respect to xx. First 
-        grid point is ill (or missing) calculated. 
+        The downwind 2nd order derivative of hh respect to xx. Last 
+        grid point is ill (with "roll") or missing (with "slice") calculated. 
     """
     try:
         if kwargs["method"] == "roll":
-            return (hh-np.roll(hh,1))/(xx - np.roll(xx,1))
+            return (np.roll(hh,-1)-hh)/(np.roll(xx,-1) - xx)
+        elif kwargs["method"] == "slice":
+            return (hh[1:]-hh[:-1])/(xx[1:]-xx[:-1])
         else:
             raise KeyError
-    except:
-        # df[i] = f[i] - f[i-1] /dx
-        # dx[i] = x[i] - x[i-1]
-        # set i = 1 -> df = f[1] - f[0]
-        #              dx = x[1] - x[0]
-        return (hh[1:] - hh[:-1])/(xx[1:]-xx[:-1])
+    except: # If no method is specified, use rolling
+        return (np.roll(hh,-1)-hh)/(np.roll(xx,-1) - xx)
 
 
 def deriv_upw(xx, hh, **kwargs):
     """
     returns the upwind 2nd order derivative of hh respect to xx. 
+    dhdx[i] = h[i] - h[i-1] / x[i] - x[i-1]
 
     Parameters
     ----------
@@ -102,31 +103,34 @@ def deriv_upw(xx, hh, **kwargs):
     Keyword arguments
     -----------------
     method : 'string'
-        String to indicate a particular method to use, at the moment only "roll" is recognized
-        to use np.roll() for shifting indices. Using this mehtod will not loose any grid points.
+        String to indicate a particular method to use.
+        {"roll"} -- use np.roll() for shift indices without loosing any grid points.
+        {"sclice"} -- use slicing to shift indices, loosing first grid point.
 
     Returns
-    ------- 
+    -------
     `array`
-        The upwind 2nd order derivative of hh respect to xx. Last 
-        grid point is ill calculated. 
+        The upwind 2nd order derivative of hh respect to xx. First 
+        grid point is ill (with "roll") or missing (with "slice") calculated. 
     """
     try:
         if kwargs["method"] == "roll":
-            return (np.roll(hh,-1)-hh)/(np.roll(xx,-1)-xx)
+            return (hh-np.roll(hh,1))/(xx - np.roll(xx,1))
+        elif kwargs["method"] == "slice":    # OBS THIS IS NOT UPWIND!!!
+            return (hh[1:]-hh[:-1])/(xx[1:]-xx[:-1])
         else:
             raise KeyError
-    except:
-        # df[i] = f[i+1] - f[i] /dx
-        # dx[i] = x[i+1] - x[i]
-        # set i = 0 -> df = f[1] - f[0]
-        #              dx = xx[1] - x[0]
-        return (hh[1:] - hh[:-1])/(xx[1:]-xx[:-1])
+    except: # If no method is specified, use rolling
+        return (hh-np.roll(hh,1))/(xx - np.roll(xx,1))
+
 
 
 def deriv_cent(xx, hh, **kwargs):
     """
     returns the centered 2nd derivative of hh respect to xx. 
+    dhdx[i] = h[i+1] - h[i-1] / x[i+1] - xx[i-1]
+    or with equally spaced x
+    dhdx[i] = h[i+1] - h[i-1] / 2(x[i+1] - xx[i])
 
     Parameters
     ---------- 
@@ -138,30 +142,33 @@ def deriv_cent(xx, hh, **kwargs):
     Keyword arguments
     -----------------
     method : 'string'
-        String to indicate a particular method to use, at the moment only "roll" is recognized
-        to use np.roll() for shifting indices. Using this mehtod will not loose any grid points.
+    String to indicate a particular method to use.
+        {"roll"} -- use np.roll() for shift indices without loosing any grid points.
+        {"slice"} -- use slicing to shift indices, loosing first and last grid point.
 
     Returns
     -------
     `array`
         The centered 2nd order derivative of hh respect to xx. First 
-        and last grid points are ill calculated. 
+        and last grid points are ill ("roll") calculated or missing ("slice").
     """
     try:
         if kwargs["method"] == "roll":
             return (np.roll(hh,-1) - np.roll(hh,1))/(2*(np.roll(xx,-1)-xx))
+        elif kwargs["method"] == "slice":
+            return (hh[2:] - hh[:-2])/(2*(xx[2:]-xx[1:-1]))
         else:
             raise KeyError
     except:
-        # df[i] = f[i+1]-f[i-1] / 2dx
-        # dx[i] = x[i+1]-x[i-1]
-        # set i = 1 -> df = f[2] - f[0]
-        return (hh[2:] - hh[:-2])/(2*(xx[2:]-xx[1:-1]))
+        return (np.roll(hh,-1) - np.roll(hh,1))/(2*(np.roll(xx,-1)-xx))
+        
 
 
 def deriv_4tho(xx, hh, **kwargs): 
     """
     Returns the 4th order derivative of hh respect to xx.
+    # dhdx[i] = - h[i+2] + 8h[i+1] - 8h[i-1] + h[i-2] / 12dx
+
 
     Parameters 
     ---------- 
@@ -173,32 +180,32 @@ def deriv_4tho(xx, hh, **kwargs):
     Keyword arguments
     -----------------
     method : 'string'
-        String to indicate a particular method to use, at the moment only "roll" is recognized
-        to use np.roll() for shifting indices. Using this mehtod will not loose any grid points.
+        String to indicate a particular method to use.
+        {"roll"} -- use np.roll() for shift indices without loosing any grid points.
+        {"slice"} -- use slicing to shift indices, loosing first and last grid point.
 
     Returns
     -------
     `array`
         The centered 4th order derivative of hh respect to xx. 
-        Last and first two grid points are ill calculated. 
+        Last and first two grid points are ill calculated ("roll") or missing ("slice").
     """
     try:
         if kwargs["method"] == "roll":
             return (-np.roll(hh,-2) + 8*np.roll(hh,-1) - 8*np.roll(hh,1) + np.roll(hh,2))/(12*(np.roll(xx,-1) - xx))
+        elif kwargs["method"] == "slice":
+            dh4th   = -hh[4:] + 8*hh[3:-1] - 8*hh[1:-3] + hh[:-4]
+            dx4th   = xx[3:-1] - xx[2:-2]
+            return (dh4th)/(12*dx4th)
         else:
             raise KeyError
     except:
-        # df[i] = - f[i+2] + 8f[i+1] - 8f[i-1] + f[i-2] / 12dx
-        # dx[i] = x[i+1] - x[i]
-        # set i = 2 -> df = f[4] - 8f[3] + 8f[1] - f[0]
-        #              dx = x[3] - x[2]
-        dh4th   = -hh[4:] + 8*hh[3:-1] - 8*hh[1:-3] + hh[:-4]
-        dx4th   = xx[3:-1] - xx[2:-2]
-        return (dh4th)/(12*dx4th)
+        return (-np.roll(hh,-2) + 8*np.roll(hh,-1) - 8*np.roll(hh,1) + np.roll(hh,2))/(12*(np.roll(xx,-1) - xx))
+
    
 
 def step_adv_burgers(xx, hh, a, cfl_cut = 0.98, 
-                    ddx = lambda x,y: deriv_upw(x, y, method="roll"), **kwargs) -> tuple[float,np.ndarray]: 
+                    ddx = lambda x,y: deriv_dnw(x, y, method="roll"), **kwargs) -> tuple[float,np.ndarray]: 
     r"""
     Right hand side of Burger's eq. where a can be a constant or a function that 
     depends on xx. 
