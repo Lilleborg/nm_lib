@@ -221,6 +221,7 @@ def cfl_adv_burger(a,x):
         min(dx/|a|)
     """
     dx = (np.roll(x,-1) - x)[:-1]   # exlude the last ill calcullated value
+    dx = np.pad(dx, [0,1], "wrap")  # pad ill calculated element
     return np.min(dx/np.abs(a))
 
 
@@ -354,7 +355,9 @@ def step_uadv_burgers(xx, hh, cfl_cut = 0.98,
         time interval
     unnt : `array`
         right hand side of (u^{n+1}-u^{n})/dt = from burgers eq, i.e., x \frac{\partial u}{\partial x} 
-    """       
+    """
+    # Just make a call to step_adv_burgers with a = hh
+    return step_adv_burgers(xx, hh, hh, cfl_cut, ddx, **kwargs)
 
 
 def evolv_uadv_burgers(xx, hh, nt, cfl_cut = 0.98, 
@@ -394,6 +397,8 @@ def evolv_uadv_burgers(xx, hh, nt, cfl_cut = 0.98,
         Spatial and time evolution of u^n_j for n = (0,nt), and where j represents
         all the elements of the domain. 
     """
+    # Just make a call to evolv_adv_burgers with a = hh
+    return evolv_adv_burgers(xx, hh, nt, hh, cfl_cut, ddx, bnd_type, bnd_limits, **kwargs)
 
 
 def evolv_Lax_uadv_burgers(xx, hh, nt, cfl_cut = 0.98, 
