@@ -202,7 +202,27 @@ def deriv_4tho(xx, hh, **kwargs):
     except:
         return (-np.roll(hh,-2) + 8*np.roll(hh,-1) - 8*np.roll(hh,1) + np.roll(hh,2))/(12*(np.roll(xx,-1) - xx))
 
-   
+
+def cfl_adv_burger(a,x): 
+    """
+    Computes the dt_fact, i.e., Courant, Fredrich, and 
+    Lewy condition for the advective term in the Burger's eq. 
+
+    Parameters
+    ----------
+    a : `float` or `array`
+        Either constant, or array which multiply the right hand side of the Burger's eq.
+    x : `array`
+        Spatial axis. 
+
+    Returns
+    ------- 
+    `float`
+        min(dx/|a|)
+    """
+    dx = (np.roll(x,-1) - x)[:-1]   # exlude the last ill calcullated value
+    return np.min(dx/np.abs(a))
+
 
 def step_adv_burgers(xx, hh, a, cfl_cut = 0.98, 
                     ddx = lambda x,y: deriv_dnw(x, y, method="roll"), **kwargs) -> tuple[float,np.ndarray]: 
@@ -257,27 +277,6 @@ def step_adv_burgers(xx, hh, a, cfl_cut = 0.98,
     return dt, rhs
 
 
-def cfl_adv_burger(a,x): 
-    """
-    Computes the dt_fact, i.e., Courant, Fredrich, and 
-    Lewy condition for the advective term in the Burger's eq. 
-
-    Parameters
-    ----------
-    a : `float` or `array`
-        Either constant, or array which multiply the right hand side of the Burger's eq.
-    x : `array`
-        Spatial axis. 
-
-    Returns
-    ------- 
-    `float`
-        min(dx/|a|)
-    """
-    dx = (np.roll(x,-1) - x)[:-1]   # exlude the last ill calcullated value
-    return np.min(dx/np.abs(a))
-
-
 def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98, 
         ddx = lambda x,y: deriv_dnw(x, y), 
         bnd_type='wrap', bnd_limits=[0,1], **kwargs):
@@ -324,6 +323,38 @@ def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98,
         uunt[n+1,:] = uunt[n,:] + step * dt
         tt[n+1] = tt[n] + dt
     return tt, uunt
+
+
+def step_uadv_burgers(xx, hh, cfl_cut = 0.98, 
+                    ddx = lambda x,y: deriv_dnw(x, y), **kwargs): 
+    r"""
+    Right hand side of Burger's eq. where a is u, i.e hh.  
+
+    Requires
+    --------
+        cfl_adv_burger function which computes np.min(dx/a)
+
+    Parameters
+    ----------   
+    xx : `array`
+        Spatial axis. 
+    hh : `array`
+        Function that depends on xx.
+    cfl_cut : `array`
+        Constant value to limit dt from cfl_adv_burger. 
+        By default 0.98
+    ddx : `lambda function` 
+        Allows to select the type of spatial derivative.
+        By default lambda x,y: deriv_dnw(x, y)
+
+
+    Returns
+    -------
+    dt : `array`
+        time interval
+    unnt : `array`
+        right hand side of (u^{n+1}-u^{n})/dt = from burgers eq, i.e., x \frac{\partial u}{\partial x} 
+    """       
 
 
 def evolv_uadv_burgers(xx, hh, nt, cfl_cut = 0.98, 
@@ -446,38 +477,6 @@ def evolv_Lax_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98,
         Spatial and time evolution of u^n_j for n = (0,nt), and where j represents
         all the elements of the domain. 
     """
-
-
-def step_uadv_burgers(xx, hh, cfl_cut = 0.98, 
-                    ddx = lambda x,y: deriv_dnw(x, y), **kwargs): 
-    r"""
-    Right hand side of Burger's eq. where a is u, i.e hh.  
-
-    Requires
-    --------
-        cfl_adv_burger function which computes np.min(dx/a)
-
-    Parameters
-    ----------   
-    xx : `array`
-        Spatial axis. 
-    hh : `array`
-        Function that depends on xx.
-    cfl_cut : `array`
-        Constant value to limit dt from cfl_adv_burger. 
-        By default 0.98
-    ddx : `lambda function` 
-        Allows to select the type of spatial derivative.
-        By default lambda x,y: deriv_dnw(x, y)
-
-
-    Returns
-    -------
-    dt : `array`
-        time interval
-    unnt : `array`
-        right hand side of (u^{n+1}-u^{n})/dt = from burgers eq, i.e., x \frac{\partial u}{\partial x} 
-    """       
 
 
 def cfl_diff_burger(a,x): 
