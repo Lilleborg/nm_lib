@@ -397,6 +397,14 @@ def evolv_uadv_burgers(xx, hh, nt, cfl_cut = 0.98,
         Spatial and time evolution of u^n_j for n = (0,nt), and where j represents
         all the elements of the domain. 
     """
+    tt = np.zeros(nt)
+    uunt = np.zeros((nt,len(hh)))
+    uunt[0,:] = hh
+    for n in range(nt-1):
+        dt, step = step_uadv_burgers(xx, uunt[n,:], cfl_cut=cfl_cut, ddx=ddx, bnd_limits=bnd_limits, bnd_type=bnd_type)
+        uunt[n+1,:] = uunt[n,:] + step * dt
+        tt[n+1] = tt[n] + dt
+    return tt, uunt
     # Just make a call to evolv_adv_burgers with a = hh
     return evolv_adv_burgers(xx, hh, nt, hh, cfl_cut, ddx, bnd_type, bnd_limits, **kwargs)
 
