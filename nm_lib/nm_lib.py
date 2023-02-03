@@ -308,6 +308,12 @@ def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98,
         will need to be updated with the boundary information. 
         By default [0,1].
 
+    Keyword arguments
+    -----------------
+    end_time : `float`
+        A specific end time to reach in the integration. If provided overrides the
+        number of frames `nt` so the last element in `tt` equals `end_time`
+
     Returns
     ------- 
     t : `array`
@@ -316,6 +322,9 @@ def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98,
         Spatial and time evolution of u^n_j for n = (0,nt), and where j represents
         all the elements of the domain. 
     """
+    if "end_time" in kwargs and (type(kwargs["end_time"]) is float or type(kwargs["end_time"]) is int):
+        tf = kwargs["end_time"]
+        nt = int(round(tf/(cfl_cut*cfl_adv_burger(a,xx)))) + 1
     tt = np.zeros(nt)
     uunt = np.zeros((nt,len(hh)))
     uunt[0,:] = hh
@@ -360,7 +369,7 @@ def step_uadv_burgers(xx, hh, cfl_cut = 0.98,
     return step_adv_burgers(xx, hh, hh, cfl_cut, ddx, **kwargs)
 
 
-def evolv_uadv_burgers(xx, hh, nt, cfl_cut = 0.98, 
+def evolv_uadv_burgers(xx, hh, nt=50, cfl_cut = 0.98, 
         ddx = lambda x,y: deriv_dnw(x, y), 
         bnd_type='wrap', bnd_limits=[0,1], **kwargs):
     r"""
@@ -397,6 +406,14 @@ def evolv_uadv_burgers(xx, hh, nt, cfl_cut = 0.98,
         Spatial and time evolution of u^n_j for n = (0,nt), and where j represents
         all the elements of the domain. 
     """
+    tf=np.inf
+    if "end_time" in kwargs and (type(kwargs["end_time"]) is float or type(kwargs["end_time"]) is int):
+        tf = kwargs["end_time"]
+        # Note, don't know how many nt's required to reach tf as cfl_adv_burgers will change in time
+        # For now just try to reach tf and break integration if reached
+        # Define nt using the initial state, this should be more than enough if diffusive
+        nt = int(round(tf/(cfl_cut*cfl_adv_burger(hh, xx)))) + 1
+
     tt = np.zeros(nt)
     uunt = np.zeros((nt,len(hh)))
     uunt[0,:] = hh
@@ -404,9 +421,11 @@ def evolv_uadv_burgers(xx, hh, nt, cfl_cut = 0.98,
         dt, step = step_uadv_burgers(xx, uunt[n,:], cfl_cut=cfl_cut, ddx=ddx, bnd_limits=bnd_limits, bnd_type=bnd_type)
         uunt[n+1,:] = uunt[n,:] + step * dt
         tt[n+1] = tt[n] + dt
+        if tt[n] > tf:
+            tt = np.delete(tt, np.s_[n+1:])
+            uunt = np.delete(uunt, np.s_[n+1:],axis=0)
+            break
     return tt, uunt
-    # Just make a call to evolv_adv_burgers with a = hh
-    return evolv_adv_burgers(xx, hh, nt, hh, cfl_cut, ddx, bnd_type, bnd_limits, **kwargs)
 
 
 def evolv_Lax_uadv_burgers(xx, hh, nt, cfl_cut = 0.98, 
