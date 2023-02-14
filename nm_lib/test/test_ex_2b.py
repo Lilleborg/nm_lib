@@ -1,5 +1,5 @@
 import numpy as np
-from nm_lib import nm_lib as nm
+from nm_lib import nm_lib as nm, utils as utils
 
 def get_uu_t0(xx: np.ndarray) -> np.ndarray:
     nom = np.cos(6*np.pi*xx/5)**2
@@ -37,7 +37,7 @@ def test_ex_2b():
     a = -1
     maxabserr = np.zeros(len(nints))
     for i,nint in enumerate(nints):
-        xx, dx = nm.get_xx(nint, x0, xf)
+        xx, dx = utils.get_xx(nint, x0, xf)
         nt = int((check_time+10)/dx[1])  # Set number of times steps to evolve enough to reach the desired check_time
         uu_t0 = get_uu_t0(xx)
         tt, uunt = nm.evolv_adv_burgers(xx, uu_t0,nt=nt,a=a,ddx = lambda x,u: nm.deriv_dnw(x,u,method="roll"), bnd_limits=[0,1])
