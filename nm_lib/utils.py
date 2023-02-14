@@ -41,7 +41,7 @@ def order_conv(hh, hh2, hh4, **kwargs) -> np.ndarray:
     return np.ma.log2((hh4[::4]-hh2[::2])/(hh2[::2]-hh))
 
 
-def animate_u(uunt: np.ndarray, xx: np.ndarray, tt: np.ndarray, a:float = None, exact: callable = None, initial = None) -> FuncAnimation:
+def animate_u(tt: np.ndarray, uunt: np.ndarray, xx: np.ndarray, a:float = None, exact: callable = None, initial = None) -> FuncAnimation:
     """
     Animates a function u(x,t) in the interval xx over time tt.
 
@@ -77,7 +77,7 @@ def animate_u(uunt: np.ndarray, xx: np.ndarray, tt: np.ndarray, a:float = None, 
     return FuncAnimation(fig, animate, interval=200, frames=len(tt), init_func=init)
 
 
-def instability_maxabs(uunt: np.ndarray, tt: np.ndarray, crit_value: float) -> tuple[int, float]:
+def instability_maxabs(tt: np.ndarray, uunt: np.ndarray, crit_value: float) -> tuple[int, float]:
     """
     Finds the first index in temporal direction where the max absolute value of the spacial part of uunt
     is larger than the critical value.
