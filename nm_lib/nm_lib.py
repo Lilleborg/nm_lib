@@ -389,14 +389,14 @@ def evolv_uadv_burgers(xx, hh, nt=50, cfl_cut = 0.98,
         dt, step = step_uadv_burgers(xx, uunt[n,:], cfl_cut=cfl_cut, ddx=ddx, bnd_limits=bnd_limits, bnd_type=bnd_type)
         uunt[n+1,:] = uunt[n,:] + step * dt
         tt[n+1] = tt[n] + dt
-        if tt[n] > tf:
-            tt = np.delete(tt, np.s_[n+1:])
-            uunt = np.delete(uunt, np.s_[n+1:],axis=0)
+        if tt[n+1] > tf:
+            tt = np.delete(tt, np.s_[n+2:])
+            uunt = np.delete(uunt, np.s_[n+2:],axis=0)
             break
     return tt, uunt
 
 
-def evolv_Lax_uadv_burgers(xx, hh, nt, cfl_cut = 0.98, 
+def evolv_Lax_uadv_burgers(xx, hh, nt=50, cfl_cut = 0.98, 
         ddx = lambda x,y: deriv_cent(x, y), 
         bnd_type='wrap', bnd_limits=[1,1], **kwargs):
     r"""
@@ -447,9 +447,9 @@ def evolv_Lax_uadv_burgers(xx, hh, nt, cfl_cut = 0.98,
         uu_cent = np.pad(uunt[n,2:] + uunt[n,:-2], [1,1], "wrap")/2 # Slicing 
         uunt[n+1,:] = uu_cent + step * dt
         tt[n+1] = tt[n] + dt
-        if tt[n] > tf:
-            tt = np.delete(tt, np.s_[n+1:])
-            uunt = np.delete(uunt, np.s_[n+1:],axis=0)
+        if tt[n+1] > tf:
+            tt = np.delete(tt, np.s_[n+2:])
+            uunt = np.delete(uunt, np.s_[n+2:],axis=0)
             break
     return tt, uunt
 
