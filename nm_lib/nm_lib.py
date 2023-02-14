@@ -14,43 +14,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt 
 
-def get_xx(nint: int, x0: float, xf: float) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Generate an array of x values from x0 to xf with nint number of intervals between points
-
-    Arguments:
-        nint {int} -- number of intervals between grid points
-
-    Keyword Arguments:
-        xf {float} -- last value in output array (default: {10.0})
-        x0 {float} -- first value in output array (default: {-4.0})
-
-    Returns:
-        tuple[np.ndarray, float] -- (the resulting x array, spacing between points x[1]-x[0])
-    """
-    x = np.arange(nint+1)/nint * (xf-x0) + x0
-    return x, np.roll(x,-1)-x
-
-
-def order_conv(hh, hh2, hh4, **kwargs) -> np.ndarray:
-    """
-    Computes the order of convergence of a derivative function 
-
-    Parameters 
-    ----------
-    hh : `array`
-        Function that depends on xx. 
-    hh2 : `array`
-        Function that depends on xx but with twice number of grid points than hh. 
-    hh4 : `array`
-        Function that depends on xx but with twice number of grid points than hh2.
-    Returns
-    -------
-    `array` 
-        The order of convergence.  
-    """
-    return np.ma.log2((hh4[::4]-hh2[::2])/(hh2[::2]-hh))
-
 
 def deriv_dnw(xx, hh, **kwargs):
     """
@@ -124,7 +87,6 @@ def deriv_upw(xx, hh, **kwargs):
         return (hh-np.roll(hh,1))/(xx - np.roll(xx,1))
 
 
-
 def deriv_cent(xx, hh, **kwargs):
     """
     returns the centered 2nd derivative of hh respect to xx. 
@@ -161,7 +123,6 @@ def deriv_cent(xx, hh, **kwargs):
             raise KeyError
     except:
         return (np.roll(hh,-1) - np.roll(hh,1))/(2*(np.roll(xx,-1)-xx))
-        
 
 
 def deriv_4tho(xx, hh, **kwargs): 
@@ -312,7 +273,7 @@ def evolv_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98,
     -----------------
     end_time : `float`
         A specific end time to reach in the integration. If provided overrides the
-        number of frames `nt` so the last element in `tt` equals `end_time`
+        number of frames `nt` so the last element in `tt` >= `end_time`
 
     Returns
     ------- 
@@ -398,6 +359,14 @@ def evolv_uadv_burgers(xx, hh, nt=50, cfl_cut = 0.98,
         will need to be updated with the boundary information.
         By default [0,1]
 
+    Keyword arguments
+    -----------------
+    end_time : `float`
+        A specific end time to reach in the integration. If provided overrides the
+        number of frames `nt` so the last element in `tt` >= `end_time`. The number
+        of steps required for this is unknown, so check each iteration if end_time
+        has been reached and break the integration if so.
+
     Returns
     -------
     t : `array` 
@@ -410,8 +379,7 @@ def evolv_uadv_burgers(xx, hh, nt=50, cfl_cut = 0.98,
     if "end_time" in kwargs and (type(kwargs["end_time"]) is float or type(kwargs["end_time"]) is int):
         tf = kwargs["end_time"]
         # Note, don't know how many nt's required to reach tf as cfl_adv_burgers will change in time
-        # For now just try to reach tf and break integration if reached
-        # Define nt using the initial state, this should be more than enough if diffusive
+        # Define nt using the initial state which should be more than enough if diffusive
         nt = int(round(tf/(cfl_cut*cfl_adv_burger(hh, xx)))) + 1
 
     tt = np.zeros(nt)
@@ -429,8 +397,8 @@ def evolv_uadv_burgers(xx, hh, nt=50, cfl_cut = 0.98,
 
 
 def evolv_Lax_uadv_burgers(xx, hh, nt, cfl_cut = 0.98, 
-        ddx = lambda x,y: deriv_dnw(x, y), 
-        bnd_type='wrap', bnd_limits=[0,1], **kwargs):
+        ddx = lambda x,y: deriv_cent(x, y), 
+        bnd_type='wrap', bnd_limits=[1,1], **kwargs):
     r"""
     Advance nt time-steps in time the burger eq for a being u using the Lax method.
 
@@ -465,6 +433,25 @@ def evolv_Lax_uadv_burgers(xx, hh, nt, cfl_cut = 0.98,
         Spatial and time evolution of u^n_j for n = (0,nt), and where j represents
         all the elements of the domain. 
     """
+    tf=np.inf
+    if "end_time" in kwargs and (type(kwargs["end_time"]) is float or type(kwargs["end_time"]) is int):
+        tf = kwargs["end_time"]
+        nt = int(round(tf/(cfl_cut*cfl_adv_burger(hh, xx)))) + 1
+
+    tt = np.zeros(nt)
+    uunt = np.zeros((nt,len(hh)))
+    uunt[0,:] = hh
+    for n in range(nt-1):
+        dt, step = step_uadv_burgers(xx, uunt[n,:], cfl_cut=cfl_cut, ddx=ddx, bnd_limits=bnd_limits, bnd_type=bnd_type)
+        # uu_cent[j] = (uu[j+1] + uu[j-1])/2 -> 2*uu_cent[1] = uu[2] + uu[0], 2*uu_cent[0] = uu[1] + uu[-1], 2*uu_cent[-1] = uu[0] + uu[-2]
+        uu_cent = np.pad(uunt[n,2:] + uunt[n,:-2], [1,1], "wrap")/2 # Slicing 
+        uunt[n+1,:] = uu_cent + step * dt
+        tt[n+1] = tt[n] + dt
+        if tt[n] > tf:
+            tt = np.delete(tt, np.s_[n+1:])
+            uunt = np.delete(uunt, np.s_[n+1:],axis=0)
+            break
+    return tt, uunt
 
 
 def evolv_Lax_adv_burgers(xx, hh, nt, a, cfl_cut = 0.98, 
