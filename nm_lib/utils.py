@@ -77,6 +77,23 @@ def animate_u(tt: np.ndarray, uunt: np.ndarray, xx: np.ndarray, a:float = None, 
     return FuncAnimation(fig, animate, interval=200, frames=len(tt), init_func=init)
 
 
+def animate_us(tt: np.ndarray, uunt_dict: dict[str, np.ndarray], xx: np.ndarray) -> FuncAnimation:
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
+    print(f"Animation with nint={len(xx)-1:d}, nframes={len(tt):d}:")
+
+    def init():
+        for uunt in uunt_dict.values():
+            ax.plot(xx,uunt[0,:])
+
+    def animate(i):
+        ax.clear()
+        for name, uunt in uunt_dict.items():
+            ax.plot(xx,uunt[i,:], label=name)
+        ax.set_title(f"t={tt[i]:.2f}, nint={len(xx)-1:d}")
+        ax.legend(loc=1)
+
+    return FuncAnimation(fig, animate, interval=200, frames=len(tt), init_func=init)
+
 def instability_maxabs(tt: np.ndarray, uunt: np.ndarray, crit_value: float) -> tuple[int, float]:
     """
     Finds the first index in temporal direction where the max absolute value of the spacial part of uunt
