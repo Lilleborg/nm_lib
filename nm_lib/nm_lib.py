@@ -443,8 +443,8 @@ def evolv_Lax_uadv_burgers(xx, hh, nt=50, cfl_cut = 0.98,
     uunt[0,:] = hh
     for n in range(nt-1):
         dt, step = step_uadv_burgers(xx, uunt[n,:], cfl_cut=cfl_cut, ddx=ddx, bnd_limits=bnd_limits, bnd_type=bnd_type)
-        # uu_cent[j] = (uu[j+1] + uu[j-1])/2 -> 2*uu_cent[1] = uu[2] + uu[0], 2*uu_cent[0] = uu[1] + uu[-1], 2*uu_cent[-1] = uu[0] + uu[-2]
-        uu_cent = np.pad(uunt[n,2:] + uunt[n,:-2], [1,1], "wrap")/2 # Slicing 
+        # Using slicing excludes the ill calculated end points, so I slice and wrap the resulting array in one step:
+        uu_cent = np.pad(uunt[n,2:] + uunt[n,:-2], [1,1], "wrap")/2
         uunt[n+1,:] = uu_cent + step * dt
         tt[n+1] = tt[n] + dt
         if tt[n+1] > tf:
