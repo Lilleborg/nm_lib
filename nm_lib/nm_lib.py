@@ -7,14 +7,14 @@ Created on Fri Jul 02 10:25:17 2021.
 """
 
 # import builtin modules
-
-from typing import Union, Callable
+from math import ceil
+from typing import Tuple, Union, Callable
 
 # import external public "common" modules
 import numpy as np
 
 
-def deriv_dnw(xx: np.ndarray, hh: np.ndarray, **kwargs):
+def deriv_dnw(xx: np.ndarray, hh: np.ndarray, **kwargs) -> np.ndarray:
     """
     Returns the downwind 2nd order derivative of hh array respect to xx array.
     dhdx[i] = h[i+1]-h[i]/x[i+1]-x[i] -> Last grid point is ill calculated
@@ -50,7 +50,7 @@ def deriv_dnw(xx: np.ndarray, hh: np.ndarray, **kwargs):
         return (np.roll(hh, -1) - hh) / (np.roll(xx, -1) - xx)
 
 
-def deriv_upw(xx: np.ndarray, hh: np.ndarray, **kwargs):
+def deriv_upw(xx: np.ndarray, hh: np.ndarray, **kwargs) -> np.ndarray:
     """
     returns the upwind 2nd order derivative of hh respect to xx.
 
@@ -87,7 +87,7 @@ def deriv_upw(xx: np.ndarray, hh: np.ndarray, **kwargs):
         return (hh - np.roll(hh, 1)) / (xx - np.roll(xx, 1))
 
 
-def deriv_cent(xx: np.ndarray, hh: np.ndarray, **kwargs):
+def deriv_cent(xx: np.ndarray, hh: np.ndarray, **kwargs) -> np.ndarray:
     """
     returns the centered 2nd derivative of hh respect to xx.
 
@@ -126,7 +126,7 @@ def deriv_cent(xx: np.ndarray, hh: np.ndarray, **kwargs):
         return (np.roll(hh, -1) - np.roll(hh, 1)) / (2 * (np.roll(xx, -1) - xx))
 
 
-def deriv_4tho(xx: np.ndarray, hh: np.ndarray, **kwargs):
+def deriv_4tho(xx: np.ndarray, hh: np.ndarray, **kwargs) -> np.ndarray:
     """
     Returns the 4th order derivative of hh respect to xx.
 
@@ -169,7 +169,7 @@ def deriv_4tho(xx: np.ndarray, hh: np.ndarray, **kwargs):
         )
 
 
-def cfl_adv_burger(a: Union[float, np.ndarray], x: np.ndarray):
+def cfl_adv_burger(a: Union[float, np.ndarray], x: np.ndarray) -> float:
     """
     Computes the dt_fact, i.e., Courant, Fredrich, and Lewy condition for the
     advective term in the Burger's eq.
@@ -198,7 +198,7 @@ def step_adv_burgers(
     cfl_cut: float = 0.98,
     ddx: Callable[[np.ndarray, np.ndarray], np.ndarray] = lambda x, y: deriv_dnw(x, y, method="roll"),
     **kwargs
-) -> tuple[float, np.ndarray]:
+) -> Tuple[float, np.ndarray]:
     r"""
     Right hand side of Burger's eq. where a can be a constant or a function
     that depends on xx.
@@ -253,14 +253,14 @@ def step_adv_burgers(
 def evolv_adv_burgers(
     xx: np.ndarray,
     hh: np.ndarray,
-    nt: int,
     a: Union[float, np.ndarray],
+    nt: int = 50,
     cfl_cut: float = 0.98,
     ddx: Callable[[np.ndarray, np.ndarray], np.ndarray] = lambda x, y: deriv_dnw(x, y),
     bnd_type: str = "wrap",
     bnd_limits: list[int, int] = [0, 1],
     **kwargs
-):
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Advance nt time-steps in time the burger eq for a being a a fix constant or array.
     Requires
@@ -304,7 +304,7 @@ def evolv_adv_burgers(
     """
     if "end_time" in kwargs and (type(kwargs["end_time"]) is float or type(kwargs["end_time"]) is int):
         tf = kwargs["end_time"]
-        nt = int(round(tf / (cfl_cut * cfl_adv_burger(a, xx)))) + 1
+        nt = int(ceil(tf / (cfl_cut * cfl_adv_burger(a, xx)))) + 1
     tt = np.zeros(nt)
     uunt = np.zeros((nt, len(hh)))
     uunt[0, :] = hh
@@ -329,7 +329,7 @@ def step_uadv_burgers(
     cfl_cut: float = 0.98,
     ddx: Callable[[np.ndarray, np.ndarray], np.ndarray] = lambda x, y: deriv_dnw(x, y),
     **kwargs
-):
+) -> np.ndarray:
     r"""
     Right hand side of Burger's eq. where a is u, i.e hh.
 
@@ -371,7 +371,7 @@ def evolv_uadv_burgers(
     bnd_type: str = "wrap",
     bnd_limits: list[int, int] = [0, 1],
     **kwargs
-):
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Advance nt time-steps in time the burger eq for a being u.
 
@@ -419,7 +419,7 @@ def evolv_uadv_burgers(
         tf = kwargs["end_time"]
         # Note, don't know how many nt's required to reach tf as cfl_adv_burgers will change in time
         # Define nt using the initial state which should be more than enough if diffusive
-        nt = int(round(tf / (cfl_cut * cfl_adv_burger(hh, xx)))) + 1
+        nt = int(ceil(tf / (cfl_cut * cfl_adv_burger(hh, xx)))) + 1
 
     tt = np.zeros(nt)
     uunt = np.zeros((nt, len(hh)))
@@ -451,7 +451,7 @@ def evolv_Lax_uadv_burgers(
     bnd_type: str = "wrap",
     bnd_limits: list[int, int] = [1, 1],
     **kwargs
-):
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Advance nt time-steps in time the burger eq for a being u using the Lax
     method.
@@ -490,7 +490,7 @@ def evolv_Lax_uadv_burgers(
     tf = np.inf
     if "end_time" in kwargs and (type(kwargs["end_time"]) is float or type(kwargs["end_time"]) is int):
         tf = kwargs["end_time"]
-        nt = int(round(tf / (cfl_cut * cfl_adv_burger(hh, xx)))) + 1
+        nt = int(ceil(tf / (cfl_cut * cfl_adv_burger(hh, xx)))) + 1
 
     tt = np.zeros(nt)
     uunt = np.zeros((nt, len(hh)))
@@ -504,8 +504,9 @@ def evolv_Lax_uadv_burgers(
             bnd_limits=bnd_limits,
             bnd_type=bnd_type,
         )
-        # Using slicing excludes the ill calculated end points, so I slice and wrap the resulting array in one step:
-        uu_cent = np.pad(uunt[n, 2:] + uunt[n, :-2], [1, 1], "wrap") / 2
+        # Using slicing excludes the ill calculated end points, so I slice and pad the resulting array in one step
+        # to enforce boundaries:
+        uu_cent = np.pad(uunt[n, 2:] + uunt[n, :-2], [1, 1], bnd_type) / 2
         uunt[n + 1, :] = uu_cent + step * dt
         tt[n + 1] = tt[n] + dt
         if tt[n + 1] > tf:
@@ -516,10 +517,18 @@ def evolv_Lax_uadv_burgers(
 
 
 def evolv_Lax_adv_burgers(
-    xx, hh, nt, a, cfl_cut=0.98, ddx=lambda x, y: deriv_dnw(x, y), bnd_type="wrap", bnd_limits=[0, 1], **kwargs
-):
+    xx: np.ndarray,
+    hh: np.ndarray,
+    a: Union[float, np.ndarray],
+    nt: int = 50,
+    cfl_cut: float = 0.98,
+    ddx: Callable[[np.ndarray, np.ndarray], np.ndarray] = lambda x, y: deriv_dnw(x, y),
+    bnd_type: str = "wrap",
+    bnd_limits: list[str, str] = [0, 1],
+    **kwargs
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Advance nt time-steps in time the burger eq for a being a a fix constant or
+    Advance nt time-steps in time the burger eq for a being a fixed constant or
     array.
 
     Requires
@@ -558,6 +567,29 @@ def evolv_Lax_adv_burgers(
         Spatial and time evolution of u^n_j for n = (0,nt), and where j represents
         all the elements of the domain.
     """
+    if "end_time" in kwargs and (type(kwargs["end_time"]) is float or type(kwargs["end_time"]) is int):
+        tf = kwargs["end_time"]
+        nt = int(ceil(tf / (cfl_cut * cfl_adv_burger(a, xx)))) + 1
+
+    tt = np.zeros(nt)
+    uunt = np.zeros((nt, len(hh)))
+    uunt[0, :] = hh
+    for n in range(nt - 1):
+        dt, step = step_adv_burgers(
+            xx,
+            uunt[n, :],
+            a=a,
+            cfl_cut=cfl_cut,
+            ddx=ddx,
+            bnd_limits=bnd_limits,
+            bnd_type=bnd_type,
+        )
+        # Using slicing excludes the ill calculated end points, so I slice and pad the resulting array in one step
+        # to enforce boundaries:
+        uu_cent = np.pad(uunt[n, 2:] + uunt[n, :-2], [1, 1], bnd_type) / 2
+        uunt[n + 1, :] = uu_cent + step * dt
+        tt[n + 1] = tt[n] + dt
+    return tt, uunt
 
 
 def cfl_diff_burger(a, x):
