@@ -1,11 +1,12 @@
-from typing import Callable
+from typing import Tuple, Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
+from scipy.interpolate import interp1d
 
 
-def get_xx(nint: int, x0: float, xf: float) -> tuple[np.ndarray, np.ndarray]:
+def get_xx(nint: int, x0: float, xf: float) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate an array of x values from x0 to xf with nint number of intervals
     between points.
@@ -84,28 +85,59 @@ def animate_u(
         ax.set_title(f"t={tt[i]:.2f}, nint={len(xx)-1:d}" + title_str_app)
         ax.legend(loc=1)
 
-    return FuncAnimation(fig, animate, interval=200, frames=len(tt), init_func=init)
+    return FuncAnimation(fig, animate, interval=3000 / len(tt), frames=len(tt), init_func=init)
 
 
-def animate_us(tt: np.ndarray, uunt_dict: dict[str, np.ndarray], xx: np.ndarray) -> FuncAnimation:
+def animate_us(
+    sol_dict: dict[str, Tuple[np.ndarray, np.ndarray]],
+    tt_master: np.ndarray,
+    xx: np.ndarray,
+    initial: np.ndarray = None,
+) -> FuncAnimation:
+    """
+    Animates a series of functions u(x,t) in the interval xx over time
+    tt_master. The individual functions are interpolated across time in order
+    to animate the different solutions at the same time values.
+
+    Arguments:
+        sol_dict {dict[str, Tuple[np.ndarray, np.ndarray]]} -- dictionary with the different solutions
+        where the key is the name, the value is the solutions time array and the array u(x,t)
+        tt_master {np.ndarray} -- array with the time to be used for animation
+        xx {np.ndarray} -- the spacial coordinate
+
+    Keyword Arguments:
+        initial {np.ndarray} -- if given, an array to be plotted as the initial state (default: {None})
+
+    Returns:
+        FuncAnimation -- the resulting object from using matplotlib.animation.FuncAnimation
+    """
+    print(f"Animation with nint={len(xx)-1:d}, nframes={len(tt_master)}:")
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
-    print(f"Animation with nint={len(xx)-1:d}, nframes={len(tt):d}:")
+    # Set up interpolation for each solution in order to plot at the same time values
+    uu_of_t_dict = {}
+    for name, (tt, uunt) in sol_dict.items():
+        uu_of_t_dict[name] = interp1d(tt, uunt, axis=0)
 
     def init():
-        for uunt in uunt_dict.values():
-            ax.plot(xx, uunt[0, :])
+        if initial is not None:
+            ax.plot(xx, initial, label="init", ls=":")
+        else:
+            ax.plot([], [])
 
-    def animate(i):
+    def animate(t):
         ax.clear()
-        for name, uunt in uunt_dict.items():
-            ax.plot(xx, uunt[i, :], label=name)
-        ax.set_title(f"t={tt[i]:.2f}, nint={len(xx)-1:d}")
+        for name, uu_of_t in uu_of_t_dict.items():
+            ax.plot(xx, uu_of_t(t), label=name)
+        ax.set_title(f"t={t:.2f}, nint={len(xx)-1:d}")
         ax.legend(loc=1)
+        ax.set_ylim(-0.1 * np.max(uunt), np.max(uunt) * 1.1)
+        ax.set_xlabel("x")
+        ax.set_ylabel("u(x,t)")
 
-    return FuncAnimation(fig, animate, interval=200, frames=len(tt), init_func=init)
+    return FuncAnimation(fig, animate, interval=3000 / len(tt_master), frames=tt_master, init_func=init)
 
 
-def instability_maxabs(tt: np.ndarray, uunt: np.ndarray, crit_value: float) -> tuple[int, float]:
+def instability_maxabs(tt: np.ndarray, uunt: np.ndarray, crit_value: float) -> Tuple[int, float]:
     """
     Finds the first index in temporal direction where the max absolute value of
     the spacial part of uunt is larger than the critical value.
@@ -128,3 +160,43 @@ def instability_maxabs(tt: np.ndarray, uunt: np.ndarray, crit_value: float) -> t
         crit_time = tt[id_crit]
         print(f"Instability after {id_crit:d} timesteps, t={crit_time:.2f}")
     return id_crit, crit_time
+
+
+def plot_snapshot(
+    sol_dict: dict[str, Tuple[np.ndarray, np.ndarray]],
+    xx: np.ndarray,
+    time_stamps: np.ndarray,
+    initial: np.ndarray = None,
+) -> Tuple[plt.Figure, plt.Axes]:
+    """
+    Plot a series of functions u(x,t) in the interval xx at specific time
+    stamps.
+
+    Arguments:
+        sol_dict {dict[str, Tuple[np.ndarray, np.ndarray]]} -- dictionary with the different solutions
+        where the key is the name, the value is the solutions time array and the array u(x,t)
+        xx {np.ndarray} -- the spacial coordinate
+        time_stamps {np.ndarray} -- the specific times to plot each solutions. If no more than 4 are
+        given each curve will have a unique line style
+
+    Keyword Arguments:
+        initial {np.ndarray} -- if given, an array to be plotted as the initial state (default: {None})
+
+    Returns:
+        Tuple[plt.Figure, plt.Axes] -- the resulting figure and axis object
+    """
+    linestyles = ["-", "--", ":", "-."]
+    if len(time_stamps) > len(linestyles):
+        print(f"More time stamps than line styles, duplicated lines expected...")
+    fig, ax = plt.subplots()
+    if initial is not None:
+        ax.plot(xx, initial, alpha=0.5, color="k", ls=":", label="init")
+    for i, (name, (tt, uunt)) in enumerate(sol_dict.items()):
+        for j, t in enumerate(time_stamps):
+            uu_of_t = interp1d(tt, uunt, axis=0)
+            ax.plot(xx, uu_of_t(t), label=name + f", t_i={t:.1f}", color=f"C{i}", ls=linestyles[j])
+    ax.legend(bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc="lower left", mode="expand", ncol=len(sol_dict))
+    ax.set_xlabel("x")
+    ax.set_ylabel("u(x,t_i)")
+
+    return fig, ax
