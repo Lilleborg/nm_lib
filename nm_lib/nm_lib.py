@@ -504,8 +504,8 @@ def evolv_Lax_uadv_burgers(
             bnd_limits=bnd_limits,
             bnd_type=bnd_type,
         )
-        # Using slicing excludes the ill calculated end points, so I slice and pad the resulting array in one step
-        # to enforce boundaries:
+        # Using slicing excludes the ill calculated end points, so I slice and pad the resulting array
+        # in one step to enforce boundaries:
         uu_cent = np.pad(uunt[n, 2:] + uunt[n, :-2], [1, 1], bnd_type) / 2
         uunt[n + 1, :] = uu_cent + step * dt
         tt[n + 1] = tt[n] + dt
@@ -584,8 +584,8 @@ def evolv_Lax_adv_burgers(
             bnd_limits=bnd_limits,
             bnd_type=bnd_type,
         )
-        # Using slicing excludes the ill calculated end points, so I slice and pad the resulting array in one step
-        # to enforce boundaries:
+        # Using slicing excludes the ill calculated end points, so I slice and pad the resulting array
+        # in one step to enforce boundaries:
         uu_cent = np.pad(uunt[n, 2:] + uunt[n, :-2], [1, 1], bnd_type) / 2
         uunt[n + 1, :] = uu_cent + step * dt
         tt[n + 1] = tt[n] + dt
