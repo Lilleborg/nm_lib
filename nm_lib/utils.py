@@ -1,4 +1,4 @@
-from typing import Tuple, Callable
+from typing import Tuple, Union, Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,6 +23,30 @@ def get_xx(nint: int, x0: float, xf: float) -> Tuple[np.ndarray, np.ndarray]:
     """
     x = np.arange(nint + 1) / nint * (xf - x0) + x0
     return x, np.roll(x, -1) - x
+
+
+def get_periodic_value(xmin: float, xmax: float, value: Union[float, np.ndarray]) -> np.ndarray:
+    """
+    Returns values within and interval with periodic boundaries. Supports both
+    scalar and array values, but will always return an array.
+
+    Arguments:
+        xmin {float} -- min value of interval
+        xmax {float} -- max value of interval
+        value {Union[float, np.ndarray]} -- value(s) to be evaluated periodicly. Any value outside
+        [xmin, xmax] is transformed to lay inside the interval using periodic boundaries.
+
+    Returns:
+        np.ndarray -- the returning values on periodic interval
+    """
+    if isinstance(value, (float, int)):
+        value = np.array([value])
+    interval = xmax - xmin
+    value_zeroed = value - xmin
+    value_periodic = value_zeroed % interval + xmin
+    # If any values in value exactly equal xmax, it will be sat to xmin, which is fine but confusing. Adjust it back:
+    value_periodic[np.nonzero(value == xmax)] = xmax
+    return value_periodic
 
 
 def order_conv(hh: np.ndarray, hh2: np.ndarray, hh4: np.ndarray, **kwargs) -> np.ndarray:
@@ -130,7 +154,7 @@ def animate_us(
             ax.plot(xx, uu_of_t(t), label=name)
         ax.set_title(f"t={t:.2f}, nint={len(xx)-1:d}")
         ax.legend(loc=1)
-        ax.set_ylim(-0.1 * np.max(uunt), np.max(uunt) * 1.1)
+        # ax.set_ylim(-0.1 * np.max(uunt), np.max(uunt) * 1.1)
         ax.set_xlabel("x")
         ax.set_ylabel("u(x,t)")
 

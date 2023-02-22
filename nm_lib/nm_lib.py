@@ -592,6 +592,43 @@ def evolv_Lax_adv_burgers(
     return tt, uunt
 
 
+def step_Rie_uadv_burgers(xx: np.ndarray, hh: np.ndarray, cfl_cut: float = 0.98, **kwargs):
+    F_pluss, v_a = get_Rusanov_flux(hh, np.roll(hh, -1))
+    F_minus, _ = get_Rusanov_flux(np.roll(hh, 1), hh)
+    dt = cfl_cut * cfl_adv_burger(v_a, xx)
+    rhs = -(F_pluss - F_minus) / (np.roll(xx, -1) - xx)
+    rhs = np.pad(rhs[1:-1], [1, 1], "wrap")
+    return dt, rhs
+
+
+def get_Rusanov_flux(uu_L, uu_R):
+    v_a = np.maximum(np.abs(uu_L), np.abs(uu_R))
+    F_L = uu_L**2 / 2
+    F_R = uu_R**2 / 2
+    F_star = (F_R + F_L) / 2 - v_a / 2 * (uu_R - uu_L)
+    return F_star, v_a
+
+
+def evolv_Rie_uadv_burgers(xx: np.ndarray, hh: np.ndarray, cfl_cut: float = 0.98, nt: int = 50, **kwargs):
+    tf = np.inf
+    if "end_time" in kwargs and (type(kwargs["end_time"]) is float or type(kwargs["end_time"]) is int):
+        tf = kwargs["end_time"]
+        nt = int(ceil(tf / (cfl_cut * cfl_adv_burger(hh, xx)))) + 1
+
+    tt = np.zeros(nt)
+    uunt = np.zeros((nt, len(hh)))
+    uunt[0] = hh
+    for n in range(nt - 1):
+        dt, step = step_Rie_uadv_burgers(xx, uunt[n], cfl_cut, **kwargs)
+        uunt[n + 1] = uunt[n] + step * dt
+        tt[n + 1] = tt[n] + dt
+        if tt[n + 1] > tf:
+            tt = np.delete(tt, np.s_[n + 2 :])
+            uunt = np.delete(uunt, np.s_[n + 2 :], axis=0)
+            break
+    return tt, uunt
+
+
 def cfl_diff_burger(a, x):
     """
     Computes the dt_fact, i.e., Courant, Fredrich, and Lewy condition for the
