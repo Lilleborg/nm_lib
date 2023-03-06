@@ -109,13 +109,14 @@ def animate_u(
         ax.set_title(f"t={tt[i]:.2f}, nint={len(xx)-1:d}" + title_str_app)
         ax.legend(loc=1)
 
-    return FuncAnimation(fig, animate, interval=3000 / len(tt), frames=len(tt), init_func=init)
+    return FuncAnimation(fig, animate, interval=3000 / len(tt), frames=len(tt), init_func=init).to_jshtml()
 
 
 def animate_us(
     sol_dict: dict[str, Tuple[np.ndarray, np.ndarray]],
     tt_master: np.ndarray,
     xx: np.ndarray,
+    exact: Callable[[np.ndarray, float], np.ndarray] = None,
     initial: np.ndarray = None,
 ) -> FuncAnimation:
     """
@@ -150,6 +151,8 @@ def animate_us(
 
     def animate(t):
         ax.clear()
+        if exact is not None:
+            ax.plot(xx, exact(xx, t, uu_of_t), ls="--", label="exact")
         for name, uu_of_t in uu_of_t_dict.items():
             ax.plot(xx, uu_of_t(t), label=name)
         ax.set_title(f"t={t:.2f}, nint={len(xx)-1:d}")
@@ -158,7 +161,7 @@ def animate_us(
         ax.set_xlabel("x")
         ax.set_ylabel("u(x,t)")
 
-    return FuncAnimation(fig, animate, interval=3000 / len(tt_master), frames=tt_master, init_func=init)
+    return FuncAnimation(fig, animate, interval=3000 / len(tt_master), frames=tt_master, init_func=init).to_jshtml()
 
 
 def instability_maxabs(tt: np.ndarray, uunt: np.ndarray, crit_value: float) -> Tuple[int, float]:
